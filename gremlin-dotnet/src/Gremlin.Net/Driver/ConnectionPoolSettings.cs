@@ -33,8 +33,10 @@ namespace Gremlin.Net.Driver
     {
         private int _poolSize = DefaultPoolSize;
         private int _maxInProcessPerConnection = DefaultMaxInProcessPerConnection;
+        private int _nrReconnectRetries = DefaultNrReconnectAttempts;
         private const int DefaultPoolSize = 4;
         private const int DefaultMaxInProcessPerConnection = 32;
+        private const int DefaultNrReconnectAttempts = 4;
 
         /// <summary>
         ///     Gets or sets the size of the connection pool.
@@ -54,10 +56,10 @@ namespace Gremlin.Net.Driver
         }
 
         /// <summary>
-        ///     Gets the maximum number of in-flight requests that can occur on a connection.
+        ///     Gets or sets the maximum number of in-flight requests that can occur on a connection.
         /// </summary>
         /// <remarks>
-        ///     The default value is 32. A <see cref="NoConnectionAvailableException" /> is thrown if this limit is reached on
+        ///     The default value is 32. A <see cref="ConnectionPoolBusyException" /> is thrown if this limit is reached on
         ///     all connections when a new request comes in.
         /// </remarks>
         public int MaxInProcessPerConnection
@@ -69,6 +71,28 @@ namespace Gremlin.Net.Driver
                     throw new ArgumentOutOfRangeException(nameof(MaxInProcessPerConnection),
                         "MaxInProcessPerConnection must be > 0!");
                 _maxInProcessPerConnection = value;
+            }
+        }
+
+        /// <summary>
+        ///     Gets or sets the number of retries to create a connection to the server.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException">The number of retries specified is less than zero.</exception>
+        /// <remarks>
+        ///     The default value is 4. A <see cref="ServerUnavailableException" /> is thrown if the server can still
+        ///     not be reached after this many retry attempts.
+        ///     Setting this to zero means that the driver will only try to connect to the server once if no open
+        ///     connection is available, without additional retries.
+        /// </remarks>
+        public int NrReconnectRetries
+        {
+            get => _nrReconnectRetries;
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException(nameof(NrReconnectRetries),
+                        $"{NrReconnectRetries} must be >= 0!");
+                _nrReconnectRetries = value;
             }
         }
     }

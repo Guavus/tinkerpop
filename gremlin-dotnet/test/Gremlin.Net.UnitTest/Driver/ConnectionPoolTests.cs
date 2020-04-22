@@ -155,6 +155,25 @@ namespace Gremlin.Net.UnitTest.Driver
             Assert.True(connection.IsOpen);
         }
 
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        [InlineData(4)]
+        public void ShouldPerformConfiguredNrReconnectRetriesForUnavailableServer(int nrReconnectRetries)
+        {
+            var mockedConnectionFactory = new Mock<IConnectionFactory>();
+            mockedConnectionFactory.Setup(m => m.CreateConnection()).Returns(ClosedConnection);
+            var pool = CreateConnectionPool(mockedConnectionFactory.Object, 1, nrReconnectRetries);
+
+            Assert.ThrowsAny<Exception>(() => pool.GetAvailableConnection());
+
+            
+            mockedConnectionFactory.Verify(m => m.CreateConnection(), Times.Exactly(nrReconnectRetries + 2));
+            // 2 additional calls are expected: 1 for the initial creation of the pool and 1 when the connection should
+            // be returned and none is open
+        }
+
         [Fact]
         public void ShouldThrowAfterWaitingTooLongForUnavailableServer()
         {
@@ -185,9 +204,11 @@ namespace Gremlin.Net.UnitTest.Driver
             }
         }
 
-        private static ConnectionPool CreateConnectionPool(IConnectionFactory connectionFactory, int poolSize = 2)
+        private static ConnectionPool CreateConnectionPool(IConnectionFactory connectionFactory, int poolSize = 2,
+            int nrReconnectRetries = 4)
         {
-            return new ConnectionPool(connectionFactory, new ConnectionPoolSettings {PoolSize = poolSize});
+            return new ConnectionPool(connectionFactory,
+                new ConnectionPoolSettings {PoolSize = poolSize, NrReconnectRetries = nrReconnectRetries});
         }
     }
 }

@@ -41,8 +41,7 @@ namespace Gremlin.Net.Driver
 
         private readonly ConcurrentDictionary<IConnection, byte> _deadConnections =
             new ConcurrentDictionary<IConnection, byte>();
-        private readonly int _poolSize;
-        private readonly int _maxInProcessPerConnection;
+        private readonly ConnectionPoolSettings _settings;
         private int _connectionIndex;
         private int _poolState;
         private const int PoolIdle = 0;
@@ -51,8 +50,7 @@ namespace Gremlin.Net.Driver
         public ConnectionPool(IConnectionFactory connectionFactory, ConnectionPoolSettings settings)
         {
             _connectionFactory = connectionFactory;
-            _poolSize = settings.PoolSize;
-            _maxInProcessPerConnection = settings.MaxInProcessPerConnection;
+            _settings = settings;
             ReplaceDeadConnectionsAsync().WaitUnwrap();
         }
         
@@ -61,7 +59,8 @@ namespace Gremlin.Net.Driver
         public IConnection GetAvailableConnection()
         {
             var connection = Policy.Handle<ServerUnavailableException>()
-                .WaitAndRetry(3, attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)))
+                .WaitAndRetry(_settings.NrReconnectRetries,
+                    attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt)))
                 .Execute(GetConnectionFromPool);
 
             return ProxiedConnection(connection);
@@ -113,7 +112,7 @@ namespace Gremlin.Net.Driver
         
         private async Task FillPoolAsync()
         {
-            var nrConnectionsToCreate = _poolSize - _connections.Count;
+            var nrConnectionsToCreate = _settings.PoolSize - _connections.Count;
             var connectionCreationTasks = new List<Task<IConnection>>(nrConnectionsToCreate);
             try
             {
@@ -161,7 +160,7 @@ namespace Gremlin.Net.Driver
             for (var i = 0; i < connections.Length; i++)
             {
                 var connection = connections[(index + i) % connections.Length];
-                if (connection.NrRequestsInFlight >= _maxInProcessPerConnection) continue;
+                if (connection.NrRequestsInFlight >= _settings.MaxInProcessPerConnection) continue;
                 if (!connection.IsOpen)
                 {
                     ReplaceConnection(connection);
@@ -171,9 +170,9 @@ namespace Gremlin.Net.Driver
                 return connection;
             }
 
-            if (connections.Length > closedConnections) 
+            if (connections.Length > closedConnections)
             {
-                throw new ConnectionPoolBusyException(_poolSize, _maxInProcessPerConnection);
+                throw new ConnectionPoolBusyException(_settings.PoolSize, _settings.MaxInProcessPerConnection);
             }
             else
             {

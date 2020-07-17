@@ -29,11 +29,13 @@ import javax.security.sasl.AuthorizeCallback;
 import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslServer;
 import java.io.File;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.hadoop.security.authentication.util.KrbAuthToNameWrapper;
 
 /**
  * A Kerberos (GSSAPI) implementation of an {@link Authenticator}
@@ -58,6 +60,7 @@ public class Krb5Authenticator implements Authenticator {
     public void setup(final Map<String, Object> config) {
         final String KEYTAB_KEY = "keytab";
         final String PRINCIPAL_KEY = "principal";
+        final String AUTH_TO_LOCAL_RULE_FILE_KEY = "auth_to_local_rule_file";
 
         logger.info("Config: {}", config);
 
@@ -71,6 +74,10 @@ public class Krb5Authenticator implements Authenticator {
             final File keytabFile = new File((String) config.get(KEYTAB_KEY));
             principalName = (String) config.get(PRINCIPAL_KEY);
             subject = JaasKrbUtil.loginUsingKeytab(principalName, keytabFile);
+
+            KrbAuthToNameWrapper.init((String) config.get(AUTH_TO_LOCAL_RULE_FILE_KEY), true);
+        } catch (IOException e) {
+            logger.warn("Failed to load auth to local rules file {}",config.get(AUTH_TO_LOCAL_RULE_FILE_KEY).toString());
         } catch (Exception e) {
             logger.warn("Failed to login to kdc");
         }
@@ -177,7 +184,12 @@ public class Krb5Authenticator implements Authenticator {
         @Override
         public AuthenticatedUser getAuthenticatedUser() throws AuthenticationException {
             logger.debug("getAuthenticatedUser called: " + saslServer.getAuthorizationID());
-            return new AuthenticatedUser(saslServer.getAuthorizationID());
+            try {
+                return new AuthenticatedUser(KrbAuthToNameWrapper.getName(saslServer.getAuthorizationID()));
+            } catch (IOException e) {
+                throw new AuthenticationException("Error occurred while applying auth to name mapping" +
+                        ", check rules file, error message: " + e.getMessage());
+            }
         }
 
     }

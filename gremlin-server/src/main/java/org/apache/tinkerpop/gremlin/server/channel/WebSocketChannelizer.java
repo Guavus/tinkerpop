@@ -21,14 +21,17 @@ package org.apache.tinkerpop.gremlin.server.channel;
 import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
 import org.apache.tinkerpop.gremlin.server.AbstractChannelizer;
 import org.apache.tinkerpop.gremlin.server.auth.AllowAllAuthenticator;
-import org.apache.tinkerpop.gremlin.server.handler.AbstractAuthenticationHandler;
-import org.apache.tinkerpop.gremlin.server.Settings;
+import org.apache.tinkerpop.gremlin.server.authorization.AllowAllAuthorizer;
 import org.apache.tinkerpop.gremlin.server.handler.SaslAuthenticationHandler;
 import org.apache.tinkerpop.gremlin.server.handler.WsGremlinBinaryRequestDecoder;
 import org.apache.tinkerpop.gremlin.server.handler.WsGremlinCloseRequestDecoder;
 import org.apache.tinkerpop.gremlin.server.handler.GremlinResponseFrameEncoder;
 import org.apache.tinkerpop.gremlin.server.handler.WsGremlinResponseFrameEncoder;
 import org.apache.tinkerpop.gremlin.server.handler.WsGremlinTextRequestDecoder;
+import org.apache.tinkerpop.gremlin.server.handler.AbstractAuthenticationHandler;
+import org.apache.tinkerpop.gremlin.server.handler.AbstractAuthorizationHandler;
+import org.apache.tinkerpop.gremlin.server.handler.HttpAuthorizationHandler;
+import org.apache.tinkerpop.gremlin.server.Settings;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpRequestDecoder;
@@ -55,6 +58,7 @@ public class WebSocketChannelizer extends AbstractChannelizer {
     private WsGremlinResponseFrameEncoder wsGremlinResponseFrameEncoder;
     private WsGremlinCloseRequestDecoder wsGremlinCloseRequestDecoder;
     private AbstractAuthenticationHandler authenticationHandler;
+    private AbstractAuthorizationHandler authorizationHandler;
 
     @Override
     public void init(final ServerGremlinExecutor serverGremlinExecutor) {
@@ -67,9 +71,15 @@ public class WebSocketChannelizer extends AbstractChannelizer {
         wsGremlinResponseFrameEncoder = new WsGremlinResponseFrameEncoder();
 
         // configure authentication - null means don't bother to add authentication to the pipeline
-        if (authenticator != null)
+        if (authenticator != null) {
             authenticationHandler = authenticator.getClass() == AllowAllAuthenticator.class ?
                     null : instantiateAuthenticationHandler(settings.authentication);
+            if (authorizer != null) {
+                authorizationHandler = authorizer.getClass() == AllowAllAuthorizer.class ?
+                        null : instantiateAuthorizationHandler(settings.authorization);
+            }
+        }
+
     }
 
     @Override
@@ -112,6 +122,9 @@ public class WebSocketChannelizer extends AbstractChannelizer {
 
         if (authenticationHandler != null)
             pipeline.addLast(PIPELINE_AUTHENTICATOR, authenticationHandler);
+
+        if (authorizationHandler != null)
+            pipeline.addLast(PIPELINE_AUTHORIZER, authorizationHandler);
     }
 
     @Override
@@ -133,4 +146,15 @@ public class WebSocketChannelizer extends AbstractChannelizer {
             return createAuthenticationHandler(authSettings);
         }
     }
+
+    private AbstractAuthorizationHandler instantiateAuthorizationHandler(final Settings.AuthorizationSettings authorizationSettings) {
+        final String authorizationHandler = authorizationSettings.authorizationHandler;
+        if (authorizationHandler == null) {
+            //Keep things backwards compatible
+            return new HttpAuthorizationHandler(authorizer, authorizationSettings);
+        } else {
+            return createAuthorizationHandler(authorizationSettings);
+        }
+    }
+
 }

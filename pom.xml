@@ -25,7 +25,7 @@ limitations under the License.
     </parent>
     <groupId>org.apache.tinkerpop</groupId>
     <artifactId>tinkerpop</artifactId>
-    <version>3.4.1</version>
+    <version>3.4.1-auth</version>
     <packaging>pom</packaging>
     <name>Apache TinkerPop</name>
     <description>A Graph Computing Framework</description>
@@ -148,6 +148,54 @@ limitations under the License.
         <developerConnection>scm:git:git@github.com:apache/tinkerpop.git</developerConnection>
         <url>https://github.com/apache/tinkerpop</url>
     </scm>
+
+    <repositories>
+    <repository>
+        <id>hortonworks</id>
+        <name>hortonworks</name>
+        <url>http://repo.hortonworks.com/content/repositories/releases/</url>
+        <layout>default</layout>
+        <releases>
+            <enabled>true</enabled>
+        </releases>
+        <snapshots>
+            <enabled>false</enabled>
+        </snapshots>
+    </repository>
+    <repository>
+        <id>mvnrepository</id>
+        <url>http://artifacts.ggn.in.guavus.com:8081/artifactory/libs-snapshot</url>
+    </repository>
+    <repository>
+        <id>guavus.release</id>
+        <url>http://artifacts.ggn.in.guavus.com:8081/artifactory/libs-release</url>
+    </repository>
+    <repository>
+        <id>apache</id>
+        <url>https://repository.apache.org/content/repositories/public/</url>
+        <releases>
+            <enabled>true</enabled>
+            <updatePolicy>daily</updatePolicy>
+            <checksumPolicy>fail</checksumPolicy>
+        </releases>
+        <snapshots>
+            <enabled>false</enabled>
+        </snapshots>
+    </repository>
+    <repository>
+        <id>snapshot</id>
+        <url>https://repository.apache.org/content/repositories/snapshots/</url>
+        <releases>
+            <enabled>false</enabled>
+        </releases>
+        <snapshots>
+            <enabled>true</enabled>
+            <updatePolicy>always</updatePolicy>
+            <checksumPolicy>fail</checksumPolicy>
+        </snapshots>
+    </repository>
+    </repositories>
+
     <properties>
         <commons.configuration.version>1.10</commons.configuration.version>
         <commons.lang.version>2.6</commons.lang.version>
@@ -196,6 +244,9 @@ limitations under the License.
             <plugin>
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <version>1.4.1</version>
+ <configuration>
+      <skip>true</skip>
+ </configuration>
                 <executions>
                     <execution>
                         <id>enforce-all</id>

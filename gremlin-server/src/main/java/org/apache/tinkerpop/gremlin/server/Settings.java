@@ -27,6 +27,7 @@ import org.apache.tinkerpop.gremlin.process.traversal.TraversalSource;
 import org.apache.tinkerpop.gremlin.process.traversal.TraversalStrategy;
 import org.apache.tinkerpop.gremlin.server.auth.AllowAllAuthenticator;
 import org.apache.tinkerpop.gremlin.server.auth.Authenticator;
+import org.apache.tinkerpop.gremlin.server.authorization.AllowAllAuthorizer;
 import org.apache.tinkerpop.gremlin.server.channel.WebSocketChannelizer;
 import org.apache.tinkerpop.gremlin.server.handler.AbstractAuthenticationHandler;
 import org.apache.tinkerpop.gremlin.server.util.DefaultGraphManager;
@@ -219,6 +220,8 @@ public class Settings {
     public SslSettings ssl = null;
 
     public AuthenticationSettings authentication = new AuthenticationSettings();
+
+    public AuthorizationSettings authorization = new AuthorizationSettings();
 
     /**
      * Custom settings for {@link OpProcessor} implementations. Implementations are loaded via
@@ -422,6 +425,18 @@ public class Settings {
          * {@link Authenticator} implementation for specifics on what configurations are expected.
          */
         public Map<String, Object> config = null;
+    }
+
+    public static class AuthorizationSettings {
+
+        public String authorizer = AllowAllAuthorizer.class.getName();
+
+        public String authorizationHandler = null;
+
+        public boolean enableAuditLog = false;
+
+        public Map<String, Object> config = null;
+
     }
 
     /**

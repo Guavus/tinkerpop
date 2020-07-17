@@ -30,9 +30,12 @@ import org.apache.tinkerpop.gremlin.driver.ser.GraphSONMessageSerializerV2d0;
 import org.apache.tinkerpop.gremlin.driver.ser.GryoMessageSerializerV3d0;
 import org.apache.tinkerpop.gremlin.groovy.engine.GremlinExecutor;
 import org.apache.tinkerpop.gremlin.server.auth.Authenticator;
+import org.apache.tinkerpop.gremlin.server.authorization.Authorizer;
 import org.apache.tinkerpop.gremlin.server.handler.AbstractAuthenticationHandler;
+import org.apache.tinkerpop.gremlin.server.handler.AbstractAuthorizationHandler;
 import org.apache.tinkerpop.gremlin.server.handler.OpExecutorHandler;
 import org.apache.tinkerpop.gremlin.server.handler.OpSelectorHandler;
+import org.apache.tinkerpop.gremlin.server.util.GraphTraversalMappingUtil;
 import org.apache.tinkerpop.gremlin.structure.Graph;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
@@ -96,6 +99,7 @@ public abstract class AbstractChannelizer extends ChannelInitializer<SocketChann
 
 
     public static final String PIPELINE_AUTHENTICATOR = "authenticator";
+    public static final String PIPELINE_AUTHORIZER = "authorizer";
     public static final String PIPELINE_REQUEST_HANDLER = "request-handler";
     public static final String PIPELINE_HTTP_RESPONSE_ENCODER = "http-response-encoder";
 
@@ -113,6 +117,8 @@ public abstract class AbstractChannelizer extends ChannelInitializer<SocketChann
     private OpExecutorHandler opExecutorHandler;
 
     protected Authenticator authenticator;
+
+    protected Authorizer authorizer;
 
     /**
      * This method is called from within {@link #initChannel(io.netty.channel.socket.SocketChannel)} just after
@@ -146,6 +152,7 @@ public abstract class AbstractChannelizer extends ChannelInitializer<SocketChann
         if (sslContext.isPresent()) logger.info("SSL enabled");
 
         authenticator = createAuthenticator(settings.authentication);
+        authorizer = createAuthorizer(settings.authorization, graphManager);
 
         // these handlers don't share any state and can thus be initialized once per pipeline
         opSelectorHandler = new OpSelectorHandler(settings, graphManager, gremlinExecutor, scheduledExecutorService, this);
@@ -200,6 +207,36 @@ public abstract class AbstractChannelizer extends ChannelInitializer<SocketChann
         } catch (Exception ex) {
             logger.warn(ex.getMessage());
             throw new IllegalStateException(String.format("Could not create/configure Authenticator %s", authenticator), ex);
+        }
+    }
+
+    private Authorizer createAuthorizer(final Settings.AuthorizationSettings config, GraphManager graphManager) {
+        final String authorizerClass = config.authorizer;
+        try {
+            final Class<?> clazz = Class.forName(authorizerClass);
+            final Authorizer authorizer = (Authorizer) clazz.newInstance();
+            GraphTraversalMappingUtil.populateGraphTraversalToNameMapping(graphManager);
+            authorizer.setup(config.config);
+            return authorizer;
+        } catch (Exception ex) {
+            logger.warn(ex.getMessage());
+            throw new IllegalStateException(String.format("Could not create/configure Authorizer %s", authorizer), ex);
+        }
+    }
+
+    protected AbstractAuthorizationHandler createAuthorizationHandler(final Settings.AuthorizationSettings config) {
+        logger.info("inside createAuthorizationHandler : clazz:: " + config.authorizationHandler);
+        try {
+            final Class<?> clazz = Class.forName(config.authorizationHandler);
+            final Class[] constructorArgs = new Class[2];
+            constructorArgs[0] = Authorizer.class;
+            constructorArgs[1] = Settings.AuthorizationSettings.class;
+            AbstractAuthorizationHandler authorizationHandler = (AbstractAuthorizationHandler) clazz.getDeclaredConstructor(constructorArgs).newInstance(authorizer, config);
+            logger.info("returning authorizationHandler:: " + authorizationHandler);
+            return authorizationHandler;
+        } catch (Exception ex) {
+            logger.warn(ex.getMessage());
+            throw new IllegalStateException(String.format("Could not create/configure AuthorizationHandler %s", config.authorizationHandler), ex);
         }
     }
 

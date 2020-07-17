@@ -22,8 +22,11 @@ import org.apache.tinkerpop.gremlin.server.AbstractChannelizer;
 import org.apache.tinkerpop.gremlin.server.Channelizer;
 import org.apache.tinkerpop.gremlin.server.Settings;
 import org.apache.tinkerpop.gremlin.server.auth.AllowAllAuthenticator;
+import org.apache.tinkerpop.gremlin.server.authorization.AllowAllAuthorizer;
 import org.apache.tinkerpop.gremlin.server.handler.AbstractAuthenticationHandler;
+import org.apache.tinkerpop.gremlin.server.handler.AbstractAuthorizationHandler;
 import org.apache.tinkerpop.gremlin.server.handler.HttpBasicAuthenticationHandler;
+import org.apache.tinkerpop.gremlin.server.handler.HttpAuthorizationHandler;
 import org.apache.tinkerpop.gremlin.server.handler.HttpGremlinEndpointHandler;
 import io.netty.channel.ChannelPipeline;
 import io.netty.handler.codec.http.HttpObjectAggregator;
@@ -44,6 +47,7 @@ public class HttpChannelizer extends AbstractChannelizer {
 
     private HttpGremlinEndpointHandler httpGremlinEndpointHandler;
     private AbstractAuthenticationHandler authenticationHandler;
+    private AbstractAuthorizationHandler authorizationHandler;
 
     @Override
     public void init(final ServerGremlinExecutor serverGremlinExecutor) {
@@ -72,6 +76,14 @@ public class HttpChannelizer extends AbstractChannelizer {
                     null : instantiateAuthenticationHandler(settings.authentication);
             if (authenticationHandler != null)
                 pipeline.addLast(PIPELINE_AUTHENTICATOR, authenticationHandler);
+
+            if (authorizer != null) {
+                authorizationHandler = authorizer.getClass() == AllowAllAuthorizer.class ?
+                        null : instantiateAuthorizationHandler(settings.authorization);
+
+                if (authorizationHandler != null)
+                    pipeline.addLast(PIPELINE_AUTHORIZER, authorizationHandler);
+            }
         }
 
         pipeline.addLast("http-gremlin-handler", httpGremlinEndpointHandler);
@@ -84,6 +96,16 @@ public class HttpChannelizer extends AbstractChannelizer {
             return new HttpBasicAuthenticationHandler(authenticator, authSettings);
         } else {
             return createAuthenticationHandler(authSettings);
+        }
+    }
+
+    private AbstractAuthorizationHandler instantiateAuthorizationHandler(final Settings.AuthorizationSettings authorizationSettings) {
+        final String authorizationHandler = authorizationSettings.authorizationHandler;
+        if (authorizationHandler == null) {
+            //Keep things backwards compatible
+            return new HttpAuthorizationHandler(authorizer, authorizationSettings);
+        } else {
+            return createAuthorizationHandler(authorizationSettings);
         }
     }
 

@@ -30,6 +30,8 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.hadoop.security.authentication.util.KrbAuthToNameWrapper;
+
 import io.netty.util.AttributeMap;
 import org.apache.tinkerpop.gremlin.driver.Tokens;
 import org.apache.tinkerpop.gremlin.driver.message.RequestMessage;
@@ -40,6 +42,7 @@ import org.apache.tinkerpop.gremlin.server.Settings;
 import org.apache.tinkerpop.gremlin.server.auth.AuthenticatedUser;
 import org.apache.tinkerpop.gremlin.server.auth.AuthenticationException;
 import org.apache.tinkerpop.gremlin.server.auth.Authenticator;
+import org.apache.tinkerpop.gremlin.server.auth.Krb5Authenticator;
 import org.apache.tinkerpop.gremlin.server.channel.NioChannelizer;
 import org.apache.tinkerpop.gremlin.server.channel.WebSocketChannelizer;
 import org.slf4j.Logger;
@@ -95,7 +98,7 @@ public class SaslAuthenticationHandler extends AbstractAuthenticationHandler {
                 }
             } else {
                 if (requestMessage.getOp().equals(Tokens.OPS_AUTHENTICATION) && requestMessage.getArgs().containsKey(Tokens.ARGS_SASL)) {
-                    
+
                     final Object saslObject = requestMessage.getArgs().get(Tokens.ARGS_SASL);
                     final byte[] saslResponse;
                     
@@ -123,6 +126,7 @@ public class SaslAuthenticationHandler extends AbstractAuthenticationHandler {
                             }
                             // If we have got here we are authenticated so remove the handler and pass
                             // the original message down the pipeline for processing
+                            ctx.channel().attr(StateKey.AUTHENTICATED_USER).set(user.getName());
                             ctx.pipeline().remove(this);
                             final RequestMessage original = request.get();
                             ctx.fireChannelRead(original);

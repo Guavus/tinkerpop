@@ -57,4 +57,9 @@ public final class StateKey {
      * The key for the current request.
      */
     public static final AttributeKey<RequestMessage> REQUEST_MESSAGE = AttributeKey.valueOf("request");
+
+    /**
+     * The key for the authenticated user.
+     */
+    public static final AttributeKey<String> AUTHENTICATED_USER = AttributeKey.valueOf("authenticated_user");
 }

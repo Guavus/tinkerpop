@@ -26,6 +26,7 @@ import io.netty.handler.codec.http.FullHttpMessage;
 import io.netty.util.ReferenceCountUtil;
 import org.apache.tinkerpop.gremlin.server.GremlinServer;
 import org.apache.tinkerpop.gremlin.server.Settings;
+import org.apache.tinkerpop.gremlin.server.auth.AuthenticatedUser;
 import org.apache.tinkerpop.gremlin.server.auth.AuthenticationException;
 import org.apache.tinkerpop.gremlin.server.auth.Authenticator;
 import org.slf4j.Logger;
@@ -98,7 +99,8 @@ public class HttpBasicAuthenticationHandler extends AbstractAuthenticationHandle
             credentials.put(PROPERTY_PASSWORD, split[1]);
 
             try {
-                authenticator.authenticate(credentials);
+                AuthenticatedUser authenticatedUser = authenticator.authenticate(credentials);
+                ctx.channel().attr(StateKey.AUTHENTICATED_USER).set(authenticatedUser.getName());
                 ctx.fireChannelRead(request);
 
                 // User name logged with the remote socket address and authenticator classname for audit logging

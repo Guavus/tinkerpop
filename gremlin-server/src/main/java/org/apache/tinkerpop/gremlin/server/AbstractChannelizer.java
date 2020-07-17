@@ -225,14 +225,12 @@ public abstract class AbstractChannelizer extends ChannelInitializer<SocketChann
     }
 
     protected AbstractAuthorizationHandler createAuthorizationHandler(final Settings.AuthorizationSettings config) {
-        logger.info("inside createAuthorizationHandler : clazz:: " + config.authorizationHandler);
         try {
             final Class<?> clazz = Class.forName(config.authorizationHandler);
             final Class[] constructorArgs = new Class[2];
             constructorArgs[0] = Authorizer.class;
             constructorArgs[1] = Settings.AuthorizationSettings.class;
             AbstractAuthorizationHandler authorizationHandler = (AbstractAuthorizationHandler) clazz.getDeclaredConstructor(constructorArgs).newInstance(authorizer, config);
-            logger.info("returning authorizationHandler:: " + authorizationHandler);
             return authorizationHandler;
         } catch (Exception ex) {
             logger.warn(ex.getMessage());

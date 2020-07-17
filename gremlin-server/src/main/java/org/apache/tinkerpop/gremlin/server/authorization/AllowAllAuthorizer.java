@@ -42,7 +42,7 @@ public class AllowAllAuthorizer implements Authorizer {
 
   @Override
   public boolean isAccessAllowed(AuthorizationRequest authorizationRequest) throws AuthorizationException {
-    logger.info("inside isAccessAllowed : " + authorizationRequest);
+    logger.debug("inside isAccessAllowed:: {}");
 
     return true;
   }

@@ -18,7 +18,6 @@
  */
 package org.apache.tinkerpop.gremlin.server.handler;
 
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.Attribute;
@@ -27,38 +26,22 @@ import org.apache.tinkerpop.gremlin.driver.Tokens;
 import org.apache.tinkerpop.gremlin.driver.message.RequestMessage;
 import org.apache.tinkerpop.gremlin.driver.message.ResponseMessage;
 import org.apache.tinkerpop.gremlin.driver.message.ResponseStatusCode;
-import org.apache.tinkerpop.gremlin.groovy.jsr223.GremlinGroovyScriptEngine;
 import org.apache.tinkerpop.gremlin.process.traversal.Bytecode;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.DefaultGraphTraversal;
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.server.Settings;
 import org.apache.tinkerpop.gremlin.server.authorization.AuthorizationException;
-import org.apache.tinkerpop.gremlin.server.authorization.AuthorizationRequest;
 import org.apache.tinkerpop.gremlin.server.authorization.Authorizer;
 import org.apache.tinkerpop.gremlin.server.channel.NioChannelizer;
 import org.apache.tinkerpop.gremlin.server.channel.WebSocketChannelizer;
-import org.apache.tinkerpop.gremlin.server.util.GraphTraversalMappingUtil;
-import org.apache.tinkerpop.gremlin.structure.Graph;
 import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONMapper;
 import org.apache.tinkerpop.gremlin.structure.io.graphson.GraphSONVersion;
-import org.apache.tinkerpop.gremlin.structure.util.empty.EmptyGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.*;
 
-import javax.script.Bindings;
-
 import org.apache.tinkerpop.shaded.jackson.databind.ObjectMapper;
-
-
-import javax.script.CompiledScript;
-
-import static org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal.Symbols.*;
 
 /**
  * A SASL authorization handler that allows the {@link Authorizer} to be plugged into it. This handler is meant
@@ -72,12 +55,6 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
     private static final Logger logger = LoggerFactory.getLogger(SaslAuthorizationHandler.class);
 
     protected final Settings.AuthorizationSettings authorizationSettings;
-
-    private String[] writeStepsArray = {addV, addE, drop, property};
-    private Set<String> writeStepsSet = new HashSet<>(Arrays.asList(writeStepsArray));
-
-    private static final GremlinGroovyScriptEngine engine = new GremlinGroovyScriptEngine();
-    private static Map<String, Bindings> graphBindingsMap = new HashMap<>();
 
     public SaslAuthorizationHandler(final Authorizer authorizer, final Settings.AuthorizationSettings authorizationSettings) {
         super(authorizer);
@@ -96,20 +73,16 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
 
             boolean hasWriteStep = false;
             Bytecode bytecode = null;
-            String resource = null;
+            String traversalResource = null;
 
             if(requestMessage.getOp().equals(Tokens.OPS_EVAL)){
                 //gremlin console request
                 //Processor:session - if set while `remote connect`
                 String query = (String) requestMessage.getArgs().get(Tokens.ARGS_GREMLIN);
+                traversalResource = getGraphTraversalString(query);
+                Object traversalObject = getTraversalObjectFromQuery(query, traversalResource);
 
-                String traversalString = getGraphTraversalString(query);
-                Bindings bindings = getGraphBinding(traversalString);
-
-                CompiledScript compiledScript = engine.compile(query);
-                Object traversalObject = compiledScript.eval(bindings);
-
-                if(traversalObject instanceof Number || traversalObject instanceof String){
+                if(traversalObject==null || traversalObject instanceof Number || traversalObject instanceof String){
                     ctx.fireChannelRead(requestMessage);
                     return;
                 } else if (traversalObject instanceof GraphTraversal.Admin){
@@ -130,8 +103,7 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
                     Map<String, String> aliasesMap = ((Map) aliasesObj);
                     Iterator<Map.Entry<String, String>> entryIterator = aliasesMap.entrySet().iterator();
                     if(entryIterator.hasNext()){
-                        String traversalName = entryIterator.next().getValue();
-                        resource = GraphTraversalMappingUtil.getGraphName(traversalName);
+                        traversalResource = entryIterator.next().getValue();
                     }
                 }
 
@@ -145,7 +117,7 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
             hasWriteStep = hasWriteStep || hasWriteStep(bytecode);
 
             try{
-                authorize(user.get(), hasWriteStep, resource, ctx);
+                authorize(user.get(), hasWriteStep, traversalResource, ctx);
                 ctx.fireChannelRead(requestMessage);
             } catch (AuthorizationException ae) {
                 logger.info("returning 403");
@@ -159,46 +131,6 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
             logger.warn("{} only processes RequestMessage instances - received {} - channel closing",
                     this.getClass().getSimpleName(), msg.getClass());
             ctx.close();
-        }
-    }
-
-    private boolean hasWriteStep(Bytecode bytecode) {
-        if (bytecode !=null){
-            for (Bytecode.Instruction instruction : bytecode.getStepInstructions()) {
-                if(writeStepsSet.contains(instruction.getOperator())) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private static Bindings getGraphBinding(String traversalString) {
-        if(graphBindingsMap.containsKey(traversalString)){
-            return graphBindingsMap.get(traversalString);
-        } else {
-            synchronized (SaslAuthorizationHandler.class){
-                if(graphBindingsMap.containsKey(traversalString)){
-                    return graphBindingsMap.get(traversalString);
-                } else {
-                    //final GremlinGroovyScriptEngine engine = new GremlinGroovyScriptEngine();
-                    final Graph graph = EmptyGraph.instance();
-                    final GraphTraversalSource g = graph.traversal();
-                    final Bindings bindings = engine.createBindings();
-                    bindings.put(traversalString, g);
-                    graphBindingsMap.put(traversalString, bindings);
-                    return bindings;
-                }
-            }
-        }
-    }
-
-    private static final String DEFAULT_TRAVERSAL_STRING = "defaultgraph";
-    private static String getGraphTraversalString(String query) {
-        if(query.contains(".")){
-            return query.substring(0, query.indexOf("."));
-        } else {
-            return DEFAULT_TRAVERSAL_STRING;
         }
     }
 

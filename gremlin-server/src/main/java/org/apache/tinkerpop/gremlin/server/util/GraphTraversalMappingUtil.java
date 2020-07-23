@@ -1,7 +1,8 @@
 package org.apache.tinkerpop.gremlin.server.util;
 
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
 import org.apache.tinkerpop.gremlin.server.GraphManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -9,6 +10,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class GraphTraversalMappingUtil {
+
+  private static final Logger logger = LoggerFactory.getLogger(GraphTraversalMappingUtil.class);
 
   private static Map<String, String>  graphTraversalToNameMap = new ConcurrentHashMap<String, String>();
 
@@ -19,20 +22,24 @@ public class GraphTraversalMappingUtil {
     }
 
     Iterator<String> traversalSourceIterator = graphManager.getTraversalSourceNames().iterator();
-    Map<String, String> graphNameTraversalMap = new HashMap<String, String>();
+
+    Map<StorageBackendKey, String> storageKeyToTraversalMap = new HashMap<StorageBackendKey, String>();
     while(traversalSourceIterator.hasNext()){
       String traversalSource = traversalSourceIterator.next();
-      String currentGraphString = ( (GraphTraversalSource) graphManager.getAsBindings().get(traversalSource)).getGraph().toString();
-      graphNameTraversalMap.put(currentGraphString, traversalSource);
+      StorageBackendKey key = new StorageBackendKey(
+              graphManager.getTraversalSource(traversalSource).getGraph().configuration());
+      storageKeyToTraversalMap.put(key, traversalSource);
     }
 
     Iterator<String> graphNamesIterator =  graphManager.getGraphNames().iterator();
-    while(graphNamesIterator.hasNext()){
+    while(graphNamesIterator.hasNext()) {
       String graphName = graphNamesIterator.next();
-      String currentGraphString = graphManager.getGraph(graphName).toString();
-      String traversalSource = graphNameTraversalMap.get(currentGraphString);
-      graphTraversalToNameMap.put(traversalSource, graphName);
+      StorageBackendKey key = new StorageBackendKey(
+              graphManager.getGraph(graphName).configuration());
+      graphTraversalToNameMap.put(storageKeyToTraversalMap.get(key), graphName);
     }
+
+    logger.info("graphTraversalToNameMap:: {}" + graphTraversalToNameMap);
   }
 
   public static String getGraphName(String graphTraversalName){

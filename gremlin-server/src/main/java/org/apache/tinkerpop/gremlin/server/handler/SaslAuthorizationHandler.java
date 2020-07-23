@@ -43,6 +43,8 @@ import java.util.*;
 
 import org.apache.tinkerpop.shaded.jackson.databind.ObjectMapper;
 
+import javax.script.ScriptException;
+
 /**
  * A SASL authorization handler that allows the {@link Authorizer} to be plugged into it. This handler is meant
  * to be used with protocols that process a {@link RequestMessage} such as the {@link WebSocketChannelizer}
@@ -68,7 +70,6 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
         if (msg instanceof RequestMessage){
             final RequestMessage requestMessage = (RequestMessage) msg;
 
-            final Attribute<RequestMessage> request = ((AttributeMap) ctx).attr(StateKey.REQUEST_MESSAGE);
             final Attribute<String> user = ((AttributeMap) ctx).attr(StateKey.AUTHENTICATED_USER);
 
             boolean hasWriteStep = false;
@@ -80,9 +81,19 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
                 //Processor:session - if set while `remote connect`
                 String query = (String) requestMessage.getArgs().get(Tokens.ARGS_GREMLIN);
                 traversalResource = getGraphTraversalString(query);
-                Object traversalObject = getTraversalObjectFromQuery(query, traversalResource);
+                Object traversalObject = null;
+                try {
+                    traversalObject = getTraversalObjectFromQuery(query, traversalResource, authorizationSettings.supressMalformedRequestException);
+                } catch (ScriptException e) {
+                    final ResponseMessage error = ResponseMessage.build(requestMessage)
+                            .statusMessage(e.getCause().getMessage())
+                            .code(ResponseStatusCode.REQUEST_ERROR_MALFORMED_REQUEST).create();
+                    ctx.writeAndFlush(error);
+                }
 
-                if(traversalObject==null || traversalObject instanceof Number || traversalObject instanceof String){
+                if(traversalObject==null
+                        || traversalObject instanceof Number
+                        || traversalObject instanceof String){
                     ctx.fireChannelRead(requestMessage);
                     return;
                 } else if (traversalObject instanceof GraphTraversal.Admin){
@@ -120,14 +131,12 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
                 authorize(user.get(), hasWriteStep, traversalResource, ctx);
                 ctx.fireChannelRead(requestMessage);
             } catch (AuthorizationException ae) {
-                logger.info("returning 403");
-                final ResponseMessage error = ResponseMessage.build(request.get())
+                final ResponseMessage error = ResponseMessage.build(requestMessage)
                         .statusMessage(ae.getMessage())
                         .code(ResponseStatusCode.FORBIDDEN).create();
                 ctx.writeAndFlush(error);
             }
-        }
-        else {
+        } else {
             logger.warn("{} only processes RequestMessage instances - received {} - channel closing",
                     this.getClass().getSimpleName(), msg.getClass());
             ctx.close();

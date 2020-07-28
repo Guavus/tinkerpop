@@ -25,7 +25,7 @@ limitations under the License.
     </parent>
     <groupId>org.apache.tinkerpop</groupId>
     <artifactId>tinkerpop</artifactId>
-    <version>3.4.1-auth</version>
+    <version>3.4.1-auth0</version>
     <packaging>pom</packaging>
     <name>Apache TinkerPop</name>
     <description>A Graph Computing Framework</description>
@@ -1707,4 +1707,11 @@ limitations under the License.
         </profile>
 
     </profiles>
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+            <name>lib-release</name>
+            <url>http://artifacts.ggn.in.guavus.com:80/libs-release</url>
+        </repository>
+    </distributionManagement>
 </project>

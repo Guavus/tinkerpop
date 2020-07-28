@@ -35,7 +35,7 @@ import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.hadoop.security.authentication.util.KrbAuthToNameWrapper;
+import org.apache.hadoop.security.authentication.util.auth_to_name.KrbAuthToNameWrapper;
 
 /**
  * A Kerberos (GSSAPI) implementation of an {@link Authenticator}

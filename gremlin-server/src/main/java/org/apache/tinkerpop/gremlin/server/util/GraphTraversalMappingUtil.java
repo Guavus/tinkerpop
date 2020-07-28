@@ -30,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Utility class for obtaining graph traversal name to graph name
  *
- * @author shekhar.bansals
+ * @author shekhar.bansal
  */
 public class GraphTraversalMappingUtil {
 

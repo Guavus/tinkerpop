@@ -33,7 +33,7 @@ pipeline {
         stage("Initialize variable") {
             steps {
                 script {
-                    PUSH_JAR = true;
+                    PUSH_JAR = false;
                     
                     if( env.buildType ==~ /(release)/)
                     {

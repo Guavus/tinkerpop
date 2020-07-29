@@ -435,8 +435,6 @@ public class Settings {
 
         public boolean enableAuditLog = false;
 
-        public boolean supressMalformedRequestException = false;
-
         public Map<String, Object> config = null;
 
     }

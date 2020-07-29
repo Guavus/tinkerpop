@@ -23,7 +23,6 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpMessage;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.util.Attribute;
 import io.netty.util.AttributeMap;
 import io.netty.util.CharsetUtil;
@@ -43,13 +42,10 @@ import java.io.IOException;
 import java.util.Base64;
 
 import static io.netty.handler.codec.http.HttpResponseStatus.FORBIDDEN;
-import static io.netty.handler.codec.http.HttpResponseStatus.UNPROCESSABLE_ENTITY;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import org.apache.tinkerpop.shaded.jackson.databind.JsonNode;
 import org.apache.tinkerpop.shaded.jackson.databind.ObjectMapper;
-
-import javax.script.ScriptException;
 
 /**
  * Implements authorization for use with the {@link HttpGremlinEndpointHandler} and HTTP based API calls.
@@ -94,12 +90,7 @@ public class HttpAuthorizationHandler extends AbstractAuthorizationHandler {
             }
 
             String traversalResource = getGraphTraversalString(query);
-            Object traversalObject = null;
-            try {
-                getTraversalObjectFromQuery(query, traversalResource, authorizationSettings.supressMalformedRequestException);
-            } catch (ScriptException e) {
-                sendError(ctx, e.getCause().getMessage(), UNPROCESSABLE_ENTITY);
-            }
+            Object traversalObject = getTraversalObjectFromQuery(query, traversalResource);
 
             if(traversalObject==null || traversalObject instanceof Number || traversalObject instanceof String){
                 ctx.fireChannelRead(request);
@@ -117,14 +108,14 @@ public class HttpAuthorizationHandler extends AbstractAuthorizationHandler {
                 authorize(user.get(), hasWriteStep, traversalResource, ctx);
                 ctx.fireChannelRead(request);
             } catch (AuthorizationException ae) {
-                sendError(ctx, msg, FORBIDDEN);
+                sendError(ctx, msg);
             }
         }
     }
 
-    private void sendError(final ChannelHandlerContext ctx, final Object msg, HttpResponseStatus responseStatus) {
+    private void sendError(final ChannelHandlerContext ctx, final Object msg) {
         // Close the connection as soon as the error message is sent.
-        ctx.writeAndFlush(new DefaultFullHttpResponse(HTTP_1_1, responseStatus)).addListener(ChannelFutureListener.CLOSE);
+        ctx.writeAndFlush(new DefaultFullHttpResponse(HTTP_1_1, FORBIDDEN)).addListener(ChannelFutureListener.CLOSE);
         ReferenceCountUtil.release(msg);
     }
 }

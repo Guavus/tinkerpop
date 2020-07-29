@@ -70,10 +70,7 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
         boolean isAccessAllowed = authorizer.isAccessAllowed(authorizationRequest);
 
         if(!isAccessAllowed) {
-            throw new AuthorizationException("Action ["+authorizationRequest.getAccessType().name()
-                    +"] not allowed for user ["+authorizationRequest.getUser()
-                    +"] on graph [" +authorizationRequest.getResource()
-                    +"]");
+            throw new AuthorizationException("Action ["+authorizationRequest.getAccessType().name()+"] not allowed for user ["+authorizationRequest.getUser()+"]");
         }
     }
 
@@ -130,31 +127,15 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
         }
         return false;
     }
-    protected Object getTraversalObjectFromQuery(String query, String traversalString, boolean supressMalformedRequestException)
-            throws ScriptException {
+    protected Object getTraversalObjectFromQuery(String query, String traversalString) throws ScriptException {
         try {
             Bindings bindings = getGraphBinding(traversalString);
-            CompiledScript compiledScript = engine.compile(removeTrailingNext(query));
+
+            CompiledScript compiledScript = engine.compile(query);
             return compiledScript.eval(bindings);
         } catch (ScriptException ex) {
             logger.error("Error parsing query:: {}", ex);
-
-            if(ex.getCause() instanceof groovy.lang.MissingMethodException) {
-                return "MissingMethod";
-            }
-            if(supressMalformedRequestException) {
-                return null;
-            }
-            throw ex;
+            return null;
         }
-    }
-    private String removeTrailingNext(String query) {
-        if(query.trim().endsWith(";")){
-            query = query.trim().substring(0, query.length()-1);
-        }
-        if(query.trim().endsWith("next()")) {
-            return query.trim().substring(0, query.length()-7);
-        }
-        return query;
     }
 }

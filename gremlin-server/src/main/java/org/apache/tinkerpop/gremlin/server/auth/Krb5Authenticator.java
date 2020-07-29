@@ -35,7 +35,7 @@ import java.security.PrivilegedAction;
 import java.util.HashMap;
 import java.util.Map;
 
-
+import org.apache.hadoop.security.authentication.util.KrbAuthToNameWrapper;
 /**
  * A Kerberos (GSSAPI) implementation of an {@link Authenticator}
  * This authenticator authenticates and autorizes all clients with a valid service ticket.

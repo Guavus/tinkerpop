@@ -78,7 +78,7 @@ pipeline {
             reports_alerts(env.CHECKSTYLE_FILE, env.UNIT_RESULT, env.COBERTURA_REPORT, env.ALLURE_REPORT, env.HTML_REPORT)
  
             //Global Lib for slack alerts
-            //slackalert(env.SLACK_CHANNEL)
+            slackalert(env.SLACK_CHANNEL)
       }
     }
 }

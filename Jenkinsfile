@@ -33,7 +33,7 @@ pipeline {
         stage("Initialize variable") {
             steps {
                 script {
-                    PUSH_JAR = false;
+                    PUSH_JAR = true;
                     
                     if( env.buildType ==~ /(release)/)
                     {
@@ -51,7 +51,7 @@ pipeline {
                         script {
                             echo "Running Build"
 
-                            sh "mvn clean install -DskipTests=true -Dcheckstyle.skip=true -Drat.skip=true -Drat.ignoreErrors=true -Dmaven.test.skip=true -Dfindbugs.skip=true;"
+                            sh "mvn clean install -U -DskipTests=true -Dcheckstyle.skip=true -Drat.skip=true -Drat.ignoreErrors=true -Dmaven.test.skip=true -Dfindbugs.skip=true;"
                         }
                     }
                 }
@@ -64,7 +64,7 @@ pipeline {
                         script {
                             echo "Pushing JAR to Maven Artifactory"
 
-                            sh "mvn deploy -DskipTests=true -Dcheckstyle.skip=true -Drat.skip=true -Drat.ignoreErrors=true -Dmaven.test.skip=true -Dfindbugs.skip=true;"
+                            sh "mvn deploy -U -DskipTests=true -Dcheckstyle.skip=true -Drat.skip=true -Drat.ignoreErrors=true -Dmaven.test.skip=true -Dfindbugs.skip=true;"
                         }
                     }
                 }

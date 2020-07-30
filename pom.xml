@@ -1707,4 +1707,11 @@ limitations under the License.
         </profile>
 
     </profiles>
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+            <name>lib-release</name>
+            <url>http://artifacts.ggn.in.guavus.com:80/libs-release</url>
+        </repository>
+    </distributionManagement>
 </project>

@@ -83,7 +83,8 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
                 traversalResource = getGraphTraversalString(query);
                 Object traversalObject = null;
                 try {
-                    traversalObject = getTraversalObjectFromQuery(query, traversalResource, authorizationSettings.supressMalformedRequestException);
+                    traversalObject = getTraversalObjectFromQuery(query, traversalResource,
+                            authorizationSettings.supressMalformedRequestExceptionInAuthorizer);
                 } catch (ScriptException e) {
                     final ResponseMessage error = ResponseMessage.build(requestMessage)
                             .statusMessage(e.getCause().getMessage())
@@ -91,8 +92,10 @@ public class SaslAuthorizationHandler extends AbstractAuthorizationHandler {
                     ctx.writeAndFlush(error);
                 }
 
-                if(traversalObject==null
-                        || traversalObject instanceof Number
+                if (traversalObject == null) {
+                    logger.warn("Error parsing query in authorization, validating it as write command");
+                    hasWriteStep = true;
+                } else if(traversalObject instanceof Number
                         || traversalObject instanceof String){
                     ctx.fireChannelRead(requestMessage);
                     return;

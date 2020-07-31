@@ -87,7 +87,6 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
                 if(graphBindingsMap.containsKey(traversalString)){
                     return graphBindingsMap.get(traversalString);
                 } else {
-                    //final GremlinGroovyScriptEngine engine = new GremlinGroovyScriptEngine();
                     final Graph graph = EmptyGraph.instance();
                     final GraphTraversalSource g = graph.traversal();
                     final Bindings bindings = engine.createBindings();
@@ -123,6 +122,7 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
     protected boolean hasWriteStep(Bytecode bytecode) {
         if (bytecode !=null){
             for (Bytecode.Instruction instruction : bytecode.getStepInstructions()) {
+                logger.info("instruction:: " + instruction);
                 if(writeStepsSet.contains(instruction.getOperator())) {
                     return true;
                 }
@@ -130,7 +130,7 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
         }
         return false;
     }
-    protected Object getTraversalObjectFromQuery(String query, String traversalString, boolean supressMalformedRequestException)
+    protected Object getTraversalObjectFromQuery(String query, String traversalString, boolean supressMalformedRequestExceptionInAuthorizer)
             throws ScriptException {
         try {
             Bindings bindings = getGraphBinding(traversalString);
@@ -142,7 +142,7 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
             if(ex.getCause() instanceof groovy.lang.MissingMethodException) {
                 return "MissingMethod";
             }
-            if(supressMalformedRequestException) {
+            if(supressMalformedRequestExceptionInAuthorizer) {
                 return null;
             }
             throw ex;

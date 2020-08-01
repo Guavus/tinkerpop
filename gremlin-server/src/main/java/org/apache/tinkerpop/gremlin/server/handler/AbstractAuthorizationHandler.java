@@ -70,7 +70,10 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
         boolean isAccessAllowed = authorizer.isAccessAllowed(authorizationRequest);
 
         if(!isAccessAllowed) {
-            throw new AuthorizationException("Action ["+authorizationRequest.getAccessType().name()+"] not allowed for user ["+authorizationRequest.getUser()+"]");
+            throw new AuthorizationException("Action ["+authorizationRequest.getAccessType().name()
+                    +"] not allowed for user ["+authorizationRequest.getUser()
+                    +"] on graph [" +authorizationRequest.getResource()
+                    +"]");
         }
     }
 
@@ -84,7 +87,6 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
                 if(graphBindingsMap.containsKey(traversalString)){
                     return graphBindingsMap.get(traversalString);
                 } else {
-                    //final GremlinGroovyScriptEngine engine = new GremlinGroovyScriptEngine();
                     final Graph graph = EmptyGraph.instance();
                     final GraphTraversalSource g = graph.traversal();
                     final Bindings bindings = engine.createBindings();
@@ -120,6 +122,7 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
     protected boolean hasWriteStep(Bytecode bytecode) {
         if (bytecode !=null){
             for (Bytecode.Instruction instruction : bytecode.getStepInstructions()) {
+                logger.info("instruction:: " + instruction);
                 if(writeStepsSet.contains(instruction.getOperator())) {
                     return true;
                 }
@@ -127,15 +130,31 @@ public abstract class AbstractAuthorizationHandler extends ChannelInboundHandler
         }
         return false;
     }
-    protected Object getTraversalObjectFromQuery(String query, String traversalString) throws ScriptException {
+    protected Object getTraversalObjectFromQuery(String query, String traversalString, boolean supressMalformedRequestExceptionInAuthorizer)
+            throws ScriptException {
         try {
             Bindings bindings = getGraphBinding(traversalString);
-
-            CompiledScript compiledScript = engine.compile(query);
+            CompiledScript compiledScript = engine.compile(removeTrailingNext(query));
             return compiledScript.eval(bindings);
         } catch (ScriptException ex) {
             logger.error("Error parsing query:: {}", ex);
-            return null;
+
+            if(ex.getCause() instanceof groovy.lang.MissingMethodException) {
+                return "MissingMethod";
+            }
+            if(supressMalformedRequestExceptionInAuthorizer) {
+                return null;
+            }
+            throw ex;
         }
+    }
+    private String removeTrailingNext(String query) {
+        if(query.trim().endsWith(";")){
+            query = query.trim().substring(0, query.length()-1);
+        }
+        if(query.trim().endsWith("next()")) {
+            return query.trim().substring(0, query.length()-7);
+        }
+        return query;
     }
 }

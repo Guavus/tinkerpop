@@ -96,7 +96,7 @@ public class HttpAuthorizationHandler extends AbstractAuthorizationHandler {
             String traversalResource = getGraphTraversalString(query);
             Object traversalObject = null;
             try {
-                getTraversalObjectFromQuery(query, traversalResource,
+                traversalObject = getTraversalObjectFromQuery(query, traversalResource,
                         authorizationSettings.supressMalformedRequestExceptionInAuthorizer);
             } catch (ScriptException e) {
                 sendError(ctx, e.getCause().getMessage(), UNPROCESSABLE_ENTITY);
